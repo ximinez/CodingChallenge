@@ -22,3 +22,6 @@
 
 # Temp files (used by vi)
 *.swp
+/CodingChallenge/nbproject/private/
+/CodingChallenge/dist/Debug/
+/CodingChallenge/build/
