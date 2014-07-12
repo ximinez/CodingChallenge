@@ -10,6 +10,7 @@
 
 #include <fstream>
 #include <chrono>
+#include <future>
 
 using namespace std;
 
@@ -18,7 +19,8 @@ public:
 
     struct Result {
         Result();
-        
+        ostream& dump(ostream& out);
+
         string fileName;
         int checkSum;
         fstream::traits_type::pos_type fileSize;
@@ -32,10 +34,12 @@ public:
     virtual ~ImportantOperation();
 
     Result DoSomethingImportant();
+    future<Result> DoSomethingAsyncronously();
 private:
     int AddToCheckSum(int checksum, char datapoint);
     int WriteFile(ostream& fileStream, int fileSize, Result* pResult);
     int ReadFile(istream& fileStream, Result* pResult);
+    void DoSomethingWithAPromise(promise<Result>& resultPromise);
 
     string fileName;
     int fileSize;

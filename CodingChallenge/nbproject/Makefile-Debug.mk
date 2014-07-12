@@ -42,8 +42,8 @@ OBJECTFILES= \
 CFLAGS=
 
 # CC Compiler Flags
-CCFLAGS=-std=c++11
-CXXFLAGS=-std=c++11
+CCFLAGS=-std=c++11 -pthread
+CXXFLAGS=-std=c++11 -pthread
 
 # Fortran Compiler Flags
 FFLAGS=

@@ -20,6 +20,19 @@ ImportantOperation::Result::Result()
 {
 }
 
+ostream& ImportantOperation::Result::dump(ostream& out)
+{
+    out << "Result for " << fileName
+            << ": run time, " << runTime.count() << "ms"
+            << ". checksum, " << checkSum
+            << ". file size, " << fileSize
+            << ". read cycles, " << readCycles
+            << ". read failures, " << readFailures
+            << endl;
+
+    return out;
+}
+
 ImportantOperation::ImportantOperation(int _fileNumber, int _fileSize,
         int _readCycles)
 : fileSize(_fileSize), readCycles(_readCycles)
@@ -74,6 +87,37 @@ ImportantOperation::Result ImportantOperation::DoSomethingImportant()
     return result;
 
 
+}
+
+void ImportantOperation::DoSomethingWithAPromise(promise<ImportantOperation::Result>& resultPromise)
+{
+    try
+    {
+        resultPromise.set_value(DoSomethingImportant());
+    }
+    catch (...)
+    {
+        resultPromise.set_exception(current_exception());
+    }
+}
+
+future<ImportantOperation::Result> ImportantOperation::DoSomethingAsyncronously()
+{
+    // future from a promise
+    promise<ImportantOperation::Result> resultPromise;
+    future<ImportantOperation::Result> resultFuture = resultPromise.get_future();
+
+    thread t(
+            [](ImportantOperation* op, std::promise<ImportantOperation::Result> p)
+    {
+        op->DoSomethingWithAPromise(p);
+    },
+    this, std::move(resultPromise)
+            );
+
+    t.detach();
+
+    return resultFuture;
 }
 
 int ImportantOperation::AddToCheckSum(int checksum, char datapoint)
