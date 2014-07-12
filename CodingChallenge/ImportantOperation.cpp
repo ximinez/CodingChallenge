@@ -11,56 +11,96 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include <chrono>
 
 using namespace std;
 
-ImportantOperation::ImportantOperation() {
+ImportantOperation::Result::Result()
+: checkSum(0), fileSize(-1), readCycles(0), readFailures(0)
+{
 }
 
-ImportantOperation::ImportantOperation(const ImportantOperation& orig) {
-}
-
-ImportantOperation::~ImportantOperation() {
-}
-
-int ImportantOperation::DoSomethingImportant(int fileNumber, int fileSize,
-        int readCycles) {
+ImportantOperation::ImportantOperation(int _fileNumber, int _fileSize,
+        int _readCycles)
+: fileSize(_fileSize), readCycles(_readCycles)
+{
 
     stringstream nameBuilder;
-    nameBuilder << "importantDataFile" << fileNumber << ".txt";
+    nameBuilder << "importantDataFile" << _fileNumber << ".txt";
 
-    string fileName = nameBuilder.str();
+    fileName = nameBuilder.str();
 
-    cout << fileName << endl;
+    //    cout << fileName << endl;
+
+}
+
+ImportantOperation::ImportantOperation(const ImportantOperation& orig)
+: fileName(orig.fileName), fileSize(orig.fileSize),
+readCycles(orig.readCycles)
+{
+}
+
+ImportantOperation::~ImportantOperation()
+{
+    // Delete the file if it was created.
+    ifstream fileExists(fileName);
+    if (fileExists.rdstate() == ios_base::goodbit)
+    {
+        fileExists.close();
+        remove(fileName.c_str());
+    }
+}
+
+ImportantOperation::Result ImportantOperation::DoSomethingImportant()
+{
+    auto startTime = chrono::steady_clock::now();
+    Result result;
+
+    result.fileName = fileName;
 
     fstream fileStream(fileName,
             ios_base::binary | ios_base::in | ios_base::out | ios_base::trunc);
 
-    int writeSum = WriteFile(fileStream, fileSize);
+    WriteFile(fileStream, fileSize, &result);
 
-    int readSum = ReadFile(fileStream);
+    for (int i = 0; i < readCycles; i++)
+    {
+        ReadFile(fileStream, &result);
+    }
 
-    cout << "Wrote: " << writeSum << endl << "Read: " << readSum << endl;
+    auto runTime = chrono::steady_clock::now() - startTime;
+    result.runTime = chrono::duration_cast<chrono::milliseconds > (runTime);
 
-    return readSum;
+    return result;
 
 
 }
 
-int ImportantOperation::AddToCheckSum(int checksum, char datapoint) {
+int ImportantOperation::AddToCheckSum(int checksum, char datapoint)
+{
     return (checksum + datapoint) % 256;
 }
 
-int ImportantOperation::WriteFile(ostream& fileStream, int fileSize) {
+int ImportantOperation::WriteFile(ostream& fileStream, int fileSize, Result* pResult)
+{
 
     /*
      * Not a good checksum. Again, just trying to make some noise
      */
     int checksum = 0;
-    for (int i = 0; i < fileSize; i++) {
+    for (int i = 0; i < fileSize; i++)
+    {
         char random = (char) (rand() % 128);
         fileStream << random;
         checksum = AddToCheckSum(checksum, random);
+    }
+
+    auto actualSize = fileStream.tellp();
+    //    cout << "Wrote: " << checksum << ". " << actualSize << endl;
+    if (pResult)
+    {
+        pResult->checkSum = checksum;
+        pResult->fileSize = actualSize;
     }
 
     fileStream.flush();
@@ -68,8 +108,10 @@ int ImportantOperation::WriteFile(ostream& fileStream, int fileSize) {
     return checksum;
 }
 
-int ImportantOperation::ReadFile(istream& fileStream) {
+int ImportantOperation::ReadFile(istream& fileStream, Result* pResult)
+{
 
+    fileStream.clear();
     fileStream.sync();
     fileStream.seekg(0);
 
@@ -77,13 +119,32 @@ int ImportantOperation::ReadFile(istream& fileStream) {
     int actualSize = 0;
     int checksum = 0;
 
-    while (!fileStream.eof()) {
+    auto state = fileStream.rdstate();
+
+    while (fileStream.good())
+    {
         input = fileStream.get();
-        if (input != fstream::traits_type::eof()) {
+        if (input != fstream::traits_type::eof())
+        {
             actualSize++;
             checksum = AddToCheckSum(checksum, input);
         }
     }
+
+    if (pResult)
+    {
+        //        cout << "Read: " << checksum << ", " << pResult->checkSum
+        //                << ". " << actualSize << ", " << pResult->fileSize
+        //                << endl;
+        if (checksum != pResult->checkSum
+                || actualSize != pResult->fileSize)
+            pResult->readFailures++;
+        pResult->readCycles++;
+    }
+    //    else
+    //    {
+    //        cout << "Read: " << checksum << endl;
+    //    }
 
     return checksum;
 }

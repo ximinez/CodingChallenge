@@ -9,20 +9,37 @@
 #define	IMPORTANTOPERATION_H
 
 #include <fstream>
+#include <chrono>
 
 using namespace std;
 
 class ImportantOperation {
 public:
-    ImportantOperation();
+
+    struct Result {
+        Result();
+        
+        string fileName;
+        int checkSum;
+        fstream::traits_type::pos_type fileSize;
+        int readCycles;
+        int readFailures;
+        chrono::milliseconds runTime;
+
+    };
+    ImportantOperation(int _fileNumber, int _fileSize, int _readCycles);
     ImportantOperation(const ImportantOperation& orig);
     virtual ~ImportantOperation();
 
-    int DoSomethingImportant(int fileNumber, int fileSize, int readCycles);
+    Result DoSomethingImportant();
 private:
     int AddToCheckSum(int checksum, char datapoint);
-    int WriteFile(ostream& fileStream, int fileSize);
-    int ReadFile(istream& fileStream);
+    int WriteFile(ostream& fileStream, int fileSize, Result* pResult);
+    int ReadFile(istream& fileStream, Result* pResult);
+
+    string fileName;
+    int fileSize;
+    int readCycles;
 };
 
 #endif	/* IMPORTANTOPERATION_H */

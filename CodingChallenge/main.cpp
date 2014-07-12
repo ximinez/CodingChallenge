@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <thread>
+#include <iostream>
 
 #include "ImportantOperation.h"
 
@@ -23,9 +24,21 @@ int main(int argc, char** argv) {
      * mean anything or be useful for anything.
      */
     srand(time(0));
+    
+    const int count = 100;
+    unique_ptr<ImportantOperation> operations[count];
+    
 
-    ImportantOperation op;
-    op.DoSomethingImportant(1, 100, 1);
+    ImportantOperation op(1, 1000000, 100);
+    auto result = op.DoSomethingImportant();
+    
+    cout << "Result for " << result.fileName
+            << ": run time, " << result.runTime.count() << "ms"
+            << ". checksum, " << result.checkSum
+            << ". file size, " << result.fileSize
+            << ". read cycles, " << result.readCycles
+            << ". read failures, " << result.readFailures
+            << endl;
     
     return 0;
 }
