@@ -7,32 +7,17 @@
 
 #include "ImportantOperation.h"
 
-#include <string>
 #include <sstream>
-#include <fstream>
 #include <iostream>
-#include <chrono>
+#include <mutex>
 
 using namespace std;
 
-ImportantOperation::Result::Result()
-: checkSum(0), fileSize(-1), readCycles(0), readFailures(0)
-{
-}
-
-ostream& ImportantOperation::Result::dump(ostream& out)
-{
-    out << "Result for " << fileName
-            << ": run time, " << runTime.count() << "ms"
-            << ". checksum, " << checkSum
-            << ". file size, " << fileSize
-            << ". read cycles, " << readCycles
-            << ". read failures, " << readFailures
-            << endl;
-
-    return out;
-}
-
+/*
+ * The fileNumber / fileName doesn't really matter to the functioning of the 
+ * program. I just want to make sure each ImportantOperation uses a 
+ * unique name.
+ */
 ImportantOperation::ImportantOperation(int _fileNumber, int _fileSize,
         int _readCycles)
 : fileSize(_fileSize), readCycles(_readCycles)
@@ -48,14 +33,16 @@ ImportantOperation::ImportantOperation(int _fileNumber, int _fileSize,
 }
 
 ImportantOperation::ImportantOperation(const ImportantOperation& orig)
-: fileName(orig.fileName), fileSize(orig.fileSize),
-readCycles(orig.readCycles)
+: fileName(orig.fileName), fileSize(orig.fileSize), readCycles(orig.readCycles)
 {
 }
 
 ImportantOperation::~ImportantOperation()
 {
-    // Delete the file if it was created.
+    /*
+     * Delete the file if it was left hanging around.
+     * eg. Through an unhandled exception, premature application exit, etc.
+     */
     ifstream fileExists(fileName);
     if (fileExists.rdstate() == ios_base::goodbit)
     {
@@ -64,12 +51,21 @@ ImportantOperation::~ImportantOperation()
     }
 }
 
-ImportantOperation::Result ImportantOperation::DoSomethingImportant()
+/*
+ * The important thing here isn't really, er, important, as long as it's doing
+ * something that takes some measurable time, and can be parallelized
+ * 
+ * In this case, I take advantage of the natural blocking that comes with I/O
+ * to write [fileSize] random characters to a [fileName], compute a trivial
+ * checksum, then read them back [readCycles] times, verifying that it gets
+ * the same checksum and number of bytes.
+ */
+Result ImportantOperation::DoSomethingImportant()
 {
     auto startTime = chrono::steady_clock::now();
     Result result;
 
-    result.fileName = fileName;
+    result.label = fileName;
 
     fstream fileStream(fileName,
             ios_base::binary | ios_base::in | ios_base::out | ios_base::trunc);
@@ -84,12 +80,50 @@ ImportantOperation::Result ImportantOperation::DoSomethingImportant()
     auto runTime = chrono::steady_clock::now() - startTime;
     result.runTime = chrono::duration_cast<chrono::milliseconds > (runTime);
 
+    fileStream.close();
+    remove(fileName.c_str());
+
+
     return result;
-
-
 }
 
-void ImportantOperation::DoSomethingWithAPromise(promise<ImportantOperation::Result>& resultPromise)
+/*
+ * Create an independent thread that calls DoSomethingImportant. 
+ * Use a promise/future to get the Result back to the caller when
+ * the thread finishes.
+ * 
+ * Uses the DoSomethingWithAPromise just to keep the code a little 
+ * more readable.
+ */
+future<Result> ImportantOperation::DoSomethingAsyncronously()
+{
+    // future from a promise
+    promise<Result> resultPromise;
+    future<Result> resultFuture = resultPromise.get_future();
+
+    thread t(
+            [](ImportantOperation* op, std::promise<Result> p)
+    {
+        op->DoSomethingWithAPromise(p);
+    },
+    this, std::move(resultPromise)
+            );
+
+    /*
+     * detach the thread from being owned by this, or any object.
+     * This will allow the thread to continue running in the background
+     * when t goes out of scope and is destructed.
+     */
+    t.detach();
+
+    return resultFuture;
+}
+
+/*
+ * This could have been included in the lambda used in DoSomethingAsyncronously,
+ * but thats ugly.
+ */
+void ImportantOperation::DoSomethingWithAPromise(promise<Result>& resultPromise)
 {
     try
     {
@@ -97,40 +131,25 @@ void ImportantOperation::DoSomethingWithAPromise(promise<ImportantOperation::Res
     }
     catch (...)
     {
+        // A little bit of exception handling
         resultPromise.set_exception(current_exception());
     }
 }
 
-future<ImportantOperation::Result> ImportantOperation::DoSomethingAsyncronously()
-{
-    // future from a promise
-    promise<ImportantOperation::Result> resultPromise;
-    future<ImportantOperation::Result> resultFuture = resultPromise.get_future();
-
-    thread t(
-            [](ImportantOperation* op, std::promise<ImportantOperation::Result> p)
-    {
-        op->DoSomethingWithAPromise(p);
-    },
-    this, std::move(resultPromise)
-            );
-
-    t.detach();
-
-    return resultFuture;
-}
-
+/*
+ * Not a good checksum. Just trying to make some noise
+ */
 int ImportantOperation::AddToCheckSum(int checksum, char datapoint)
 {
     return (checksum + datapoint) % 256;
 }
 
+/*
+ * Write [fileSize] random bytes to the stream, and update the Result if any.
+ */
 int ImportantOperation::WriteFile(ostream& fileStream, int fileSize, Result* pResult)
 {
 
-    /*
-     * Not a good checksum. Again, just trying to make some noise
-     */
     int checksum = 0;
     for (int i = 0; i < fileSize; i++)
     {
@@ -152,6 +171,9 @@ int ImportantOperation::WriteFile(ostream& fileStream, int fileSize, Result* pRe
     return checksum;
 }
 
+/*
+ * Read all the bytes in the stream and check if they match the Result.
+ */
 int ImportantOperation::ReadFile(istream& fileStream, Result* pResult)
 {
 

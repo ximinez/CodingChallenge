@@ -8,27 +8,25 @@
 #ifndef IMPORTANTOPERATION_H
 #define	IMPORTANTOPERATION_H
 
-#include <fstream>
-#include <chrono>
+#include "Result.h"
+
 #include <future>
 
 using namespace std;
 
+/*
+ * Used to simulate some Important Operation that needs to be done
+ * several times.
+ * 
+ * The meaningful functions are "DoSomethingImportant" 
+ * and "DoSomethingAsyncronously". They both do the same thing,
+ * but of course, "DoSomethingAsyncronously" does it in another
+ * thread and returns a "future" that will hold the relevant 
+ * Result when it is ready.
+ */
 class ImportantOperation {
 public:
 
-    struct Result {
-        Result();
-        ostream& dump(ostream& out);
-
-        string fileName;
-        int checkSum;
-        fstream::traits_type::pos_type fileSize;
-        int readCycles;
-        int readFailures;
-        chrono::milliseconds runTime;
-
-    };
     ImportantOperation(int _fileNumber, int _fileSize, int _readCycles);
     ImportantOperation(const ImportantOperation& orig);
     virtual ~ImportantOperation();
@@ -36,9 +34,9 @@ public:
     Result DoSomethingImportant();
     future<Result> DoSomethingAsyncronously();
 private:
-    int AddToCheckSum(int checksum, char datapoint);
-    int WriteFile(ostream& fileStream, int fileSize, Result* pResult);
-    int ReadFile(istream& fileStream, Result* pResult);
+    static int AddToCheckSum(int checksum, char datapoint);
+    static int WriteFile(ostream& fileStream, int fileSize, Result* pResult);
+    static int ReadFile(istream& fileStream, Result* pResult);
     void DoSomethingWithAPromise(promise<Result>& resultPromise);
 
     string fileName;
