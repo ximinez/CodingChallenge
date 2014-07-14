@@ -31,4 +31,15 @@ before_install:
   - clang -v
 
 # Change this to your needs
-script: make -C CodingChallenge
+script: 
+  # Set so any failing command will abort the build
+  - set -e
+  # Use Netbeans's makefile. Probably not the best possible way to build, but
+  # it works for now.
+  - make -C CodingChallenge
+  # See what we've actually built
+  - ldd ./CodingChallenge/dist/Debug/GNU-Linux-x86/codingchallenge
+  # Without separate tests, just run the app.
+  - ./CodingChallenge/dist/Debug/GNU-Linux-x86/codingchallenge
+
+
