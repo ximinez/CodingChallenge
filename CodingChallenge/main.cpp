@@ -57,9 +57,9 @@ int main(int argc, char** argv)
     }
 
     Result serialStats;
-    serialStats.label = "Total serial processing";
+    serialStats.label = "cumulative serial processing";
     Result parallelStats;
-    parallelStats.label = "Total parallel processing";
+    parallelStats.label = "cumulative parallel processing";
 
     // First pass: do all the operations serially
     auto startTime = chrono::steady_clock::now();
