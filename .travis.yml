@@ -15,7 +15,7 @@ before_install:
   # We want debug symbols for boost as we install gdb later
   # # # - sudo apt-get install -qq libboost1.55-dbg
   # # # - sudo apt-get install -qq mlocate
-  - sudo updatedb
+  # # # - sudo updatedb
   # # # - sudo locate libboost | grep /lib | grep -e ".a$"
   # # # - sudo apt-get install -qq protobuf-compiler libprotobuf-dev libssl-dev exuberant-ctags
   # We need gcc >= 4.8 for some c++11 features
